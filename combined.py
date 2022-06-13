@@ -4,7 +4,7 @@ import pandas
 import pandas as pd
 import requests
 import gmaps
-
+import plotly.graph_objects as go
 import array
 from pickle import NONE
 import re
@@ -136,6 +136,61 @@ def readFile(wordFile):
         data.strip
     return data
 
+def matchingCountryList(country,textFileList,countrylist):
+    global positive_counter, negative_counter, neutral_counter
+    positive_counter = 0
+    negative_counter = 0
+    neutral_counter = 0
+    for j in range(len(textFileList)):
+        textFile = textFileList[j]
+        data = pd.read_csv(textFile, sep='t')
+        # print(data.head())
+        mydata = data.drop('Unnamed: 0', axis=1)
+        # print(mydata.head())
+
+        # clean text
+        mydata['Cleaned words'] = mydata['words'].apply(clean)
+        # print(mydata.head())
+
+        # POS tagged and remove stop words
+        mydata['POS tagged'] = mydata['Cleaned words'].apply(token_stop_pos)
+        # print(mydata.head())
+
+        mydata['Lemma'] = mydata['POS tagged'].apply(lemmatize)
+        # print(mydata.head())
+
+        # print(len(mydata.index))
+        positive_words = readFile('positive word.txt')
+        negative_words = readFile('negative word.txt')
+        i = 0
+        while i < len(mydata.index):
+            val = mydata['Lemma'].values[i]
+            if pd.isnull(mydata.loc[i, 'Lemma']):
+                i += 1
+                continue
+            else:
+                i += 1
+                if (KMPSearch(val, positive_words)):
+                    positive_counter += 1
+                elif (KMPSearch(val, negative_words)):
+                    negative_counter += 1
+                else:
+                    neutral_counter += 1
+        
+    # print(country)
+    # print("Positive words: ", positive_counter)
+    # print("Negative words: ", negative_counter)
+    # print("Neutral words: ", neutral_counter)
+
+    # print()
+
+    sentiment_list = [positive_counter,negative_counter,neutral_counter]
+    countrylist.append({"name": country,
+        "Positive Word Count":sentiment_list[0],
+        "Negative Word Count":sentiment_list[1],
+        "Neutral Word Count":sentiment_list[2]
+    })
+    return countrylist
 
 def matching(country,textFileList):
     global positive_counter, negative_counter, neutral_counter
@@ -178,14 +233,8 @@ def matching(country,textFileList):
                 else:
                     neutral_counter += 1
 
-    print(country)
-    print("Positive words: ", positive_counter)
-    print("Negative words: ", negative_counter)
-    print("Neutral words: ", neutral_counter)
-    print()
     sentiment_list = [positive_counter,negative_counter,neutral_counter]
     return sentiment_list
-
 
 # Problem 2
 def findRandomStores(store, ranNum):
@@ -428,6 +477,27 @@ for i in range (len(sentiment_list)):
 
 # Store the shortest distance of each country (optimal delivery) in distance_list
 distance_list = list()
+
+#matchingCountryList
+countrylist= []
+countrylist = matchingCountryList("France",FR_list,countrylist)
+countrylist = matchingCountryList("Malaysia",MY_list,countrylist)
+countrylist = matchingCountryList("Singapore",SG_list,countrylist)
+countrylist = matchingCountryList("United Kingdom",UK_list,countrylist)
+countrylist = matchingCountryList("United States",US_list,countrylist)
+
+# plot Graphs        
+plotGraph(countrylist,"Positive Word Count")
+plotGraph(countrylist,"Negative Word Count")
+plotGraph(countrylist,"Neutral Word Count")
+
+# calculate the Percentage of Positive Word Count with respect to Total Positive and Negative Word Counts
+percentage = []
+for y in range(len(countrylist)):
+    percentage.append((countrylist[y]["Positive Word Count"])/(countrylist[y]["Positive Word Count"]+countrylist[y]["Negative Word Count"])*100)
+
+# plot the Graph of Percentage of Positive Word Count with respect to Total Positive and Negative Word Counts
+plotMark(countrylist,percentage)
 
 print("FR")
 data = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSL3hIEO010RdV9D7J5v4gFPtKrHecZE40ALyJvMClpzkOwLCjJ-0CxyJ1keJ1W3YrLRSFvHdMn-pPd/pub?gid=0&single=true&output=csv'
